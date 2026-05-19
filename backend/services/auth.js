@@ -24,7 +24,15 @@ function validatePassword(password) {
 }
 
 function getJwtSecret() {
-  return process.env.JWT_SECRET || "jansevak-development-secret";
+  if (process.env.JWT_SECRET) {
+    return process.env.JWT_SECRET;
+  }
+
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") {
+    throw new Error("JWT_SECRET must be configured for production deployments.");
+  }
+
+  return "jansevak-development-secret";
 }
 
 async function hashPassword(password) {
@@ -36,9 +44,11 @@ async function comparePassword(password, hashedPassword) {
 }
 
 function createAuthToken(user) {
+  const userId = user._id?.toString?.() || user.id;
+
   return jwt.sign(
     {
-      sub: user._id.toString(),
+      sub: userId,
       phone: user.phone
     },
     getJwtSecret(),
@@ -53,10 +63,12 @@ function verifyAuthToken(token) {
 }
 
 function buildAuthResponse(user) {
+  const userId = user._id?.toString?.() || user.id;
+
   return {
     token: createAuthToken(user),
     user: {
-      id: user._id.toString(),
+      id: userId,
       phone: user.phone,
       createdAt: user.createdAt
     }

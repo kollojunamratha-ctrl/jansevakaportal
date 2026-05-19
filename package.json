@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "node --watch backend/server.js",
+    "build:frontend": "node scripts/build-frontend-config.js",
     "sync-schemes": "node backend/scripts/syncSchemes.js",
     "cap:init": "npx cap init JanSevak com.jansevak.app --web-dir frontend",
     "cap:add:android": "npx cap add android",

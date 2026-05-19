@@ -1,0 +1,10 @@
+api
+backend
+android
+data
+node_modules
+*.log
+render.yaml
+central.json
+telangana.json
+edge-dom.html

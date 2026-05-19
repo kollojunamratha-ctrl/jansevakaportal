@@ -35,6 +35,30 @@
       "aadhar": "123456789012",
       "schemesApplied": 0,
       "createdAt": "2026-04-24T04:50:53.040Z"
+    },
+    {
+      "id": "56f8ab69-1b54-4254-b9af-f6a47250d99d",
+      "phone": "7989146298",
+      "password": "$2b$10$FZGc3hGbzJehLZUiXR00YOnHtIqL9PkcyV5Zc4Gx2oahJl5sXevWy",
+      "name": "Gongalla Akshitha Reddy",
+      "age": 19,
+      "state": "telangana",
+      "address": "",
+      "aadhar": "",
+      "schemesApplied": 0,
+      "createdAt": "2026-04-25T07:27:02.074Z"
+    },
+    {
+      "id": "771862ee-89f4-4f77-95f9-337e705d43af",
+      "phone": "7075450805",
+      "password": "$2b$10$IgW/aNRQeqhYVIhrZBNZ9OqrSxWvEexKyenCSUtOa4g3tjDpP.8Ju",
+      "name": "",
+      "age": null,
+      "state": "",
+      "address": "",
+      "aadhar": "",
+      "schemesApplied": 0,
+      "createdAt": "2026-04-25T07:53:25.527Z"
     }
   ]
 }

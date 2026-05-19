@@ -12,10 +12,70 @@ const { initializeRepository } = require("./services/schemeRepository");
 dotenv.config();
 
 const app = express();
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = process.env.PORT || 5000;
 
+function normalizeOrigin(origin) {
+  return String(origin || "").trim().replace(/\/+$/, "");
+}
 
-app.use(cors({ origin: "*" }));
+function getAllowedOrigins() {
+  const localOrigins =
+    process.env.NODE_ENV === "production"
+      ? []
+      : [
+          "http://localhost:3000",
+          "http://localhost:5000",
+          "http://127.0.0.1:3000",
+          "http://127.0.0.1:5000"
+        ];
+
+  return [
+    ...localOrigins,
+    process.env.FRONTEND_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
+    process.env.JANSEVAK_CORS_ORIGINS
+  ]
+    .filter(Boolean)
+    .flatMap((entry) => String(entry).split(","))
+    .map(normalizeOrigin)
+    .filter(Boolean);
+}
+
+const allowedOrigins = getAllowedOrigins();
+const deploymentOriginPatterns = [
+  /^https:\/\/[a-z0-9-]+\.vercel\.app$/i,
+  /^https:\/\/[a-z0-9-]+\.onrender\.com$/i
+];
+
+function isAllowedOrigin(origin) {
+  if (!origin) {
+    return true;
+  }
+
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  return (
+    allowedOrigins.includes(normalizedOrigin) ||
+    deploymentOriginPatterns.some((pattern) => pattern.test(normalizedOrigin))
+  );
+}
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(null, false);
+  },
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -37,6 +97,9 @@ app.use("/api/schemes", schemeRoutes);
 app.use("/api", translateRoutes);
 app.use("/api", authRoutes);
 app.use("/api", profileRoutes);
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "API route not found" });
+});
 app.use(express.static(path.join(__dirname, "..", "frontend")));
 app.use("/data", express.static(path.join(__dirname, "..", "data")));
 
@@ -62,6 +125,14 @@ app.get("/scheme/:id", (req, res) => {
 
 app.get("*", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "frontend", "login.html"));
+});
+
+app.use((error, _req, res, _next) => {
+  console.error(`Request failed: ${error.message}`);
+  res.status(error.status || 500).json({
+    error: "Server error",
+    details: process.env.NODE_ENV === "production" ? undefined : error.message
+  });
 });
 
 function listenOnPort(port) {
@@ -98,8 +169,8 @@ async function initializeRepositorySafely() {
 }
 
 async function startServer() {
-  const fallbackPorts = process.env.PORT ? [0] : [PORT + 1, 0];
-  const portsToTry = [PORT, ...fallbackPorts];
+  const basePort = Number(PORT);
+  const portsToTry = process.env.PORT ? [basePort] : [basePort, basePort + 1, 0];
   let lastError;
 
   for (const candidatePort of portsToTry) {
@@ -109,9 +180,9 @@ async function startServer() {
       const activePort =
         typeof address === "object" && address !== null ? address.port : candidatePort;
 
-      if (activePort !== PORT) {
+      if (activePort !== basePort) {
         console.warn(
-          `Port ${PORT} was busy, so JanSevak switched to port ${activePort}.`
+          `Port ${basePort} was busy, so JanSevak switched to port ${activePort}.`
         );
       }
 
@@ -135,6 +206,10 @@ async function startServer() {
         throw error;
       }
 
+      if (process.env.PORT) {
+        throw error;
+      }
+
       const nextPort = candidatePort === 0 ? "a random available port" : `port ${candidatePort}`;
       console.warn(`${nextPort} is already in use. Trying another port...`);
     }
@@ -143,7 +218,21 @@ async function startServer() {
   throw lastError || new Error("Unable to start the server.");
 }
 
-startServer().catch((error) => {
-  console.error(`JanSevak could not start: ${error.message}`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  process.on("unhandledRejection", (error) => {
+    console.error(`Unhandled rejection: ${error?.message || error}`);
+  });
+
+  process.on("uncaughtException", (error) => {
+    console.error(`Uncaught exception: ${error.message}`);
+    process.exitCode = 1;
+  });
+
+  startServer().catch((error) => {
+    console.error(`JanSevak could not start: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = app;
+module.exports.startServer = startServer;

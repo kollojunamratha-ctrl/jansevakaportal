@@ -1,0 +1,1 @@
+window.JANSEVAK_BACKEND_URL = "";

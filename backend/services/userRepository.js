@@ -7,6 +7,14 @@ const { connectMongo } = require("./mongo");
 
 const USERS_FILE = path.join(__dirname, "..", "..", "data", "users.json");
 
+function requiresPersistentStore() {
+  return process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+}
+
+function createMissingMongoError() {
+  return new Error("MONGO_URI must be configured for user data on production deployments.");
+}
+
 async function ensureUsersFile() {
   try {
     await fs.access(USERS_FILE);
@@ -31,9 +39,27 @@ async function writeUsers(users) {
 async function useMongo() {
   try {
     return await connectMongo();
-  } catch {
+  } catch (error) {
+    if (requiresPersistentStore()) {
+      throw error;
+    }
+
     return false;
   }
+}
+
+async function shouldUseJsonUsers() {
+  const mongoAvailable = await useMongo();
+
+  if (mongoAvailable) {
+    return false;
+  }
+
+  if (requiresPersistentStore()) {
+    throw createMissingMongoError();
+  }
+
+  return true;
 }
 
 function buildJsonUserRecord(record) {
@@ -53,7 +79,7 @@ function buildJsonUserRecord(record) {
 }
 
 async function findUserById(id) {
-  if (await useMongo()) {
+  if (!(await shouldUseJsonUsers())) {
     return User.findById(id);
   }
 
@@ -63,7 +89,7 @@ async function findUserById(id) {
 }
 
 async function findUserByPhone(phone) {
-  if (await useMongo()) {
+  if (!(await shouldUseJsonUsers())) {
     return User.findOne({ phone });
   }
 
@@ -73,7 +99,7 @@ async function findUserByPhone(phone) {
 }
 
 async function createUser({ phone, password }) {
-  if (await useMongo()) {
+  if (!(await shouldUseJsonUsers())) {
     return User.create({ phone, password });
   }
 
@@ -104,7 +130,7 @@ async function createUser({ phone, password }) {
 }
 
 async function updateUserPassword(phone, password) {
-  if (await useMongo()) {
+  if (!(await shouldUseJsonUsers())) {
     const user = await User.findOne({ phone });
 
     if (!user) {
@@ -159,7 +185,7 @@ async function updateUserProfile(id, updates) {
     sanitizedUpdates.schemesApplied = updates.schemesApplied ?? 0;
   }
 
-  if (await useMongo()) {
+  if (!(await shouldUseJsonUsers())) {
     const user = await User.findById(id);
 
     if (!user) {
